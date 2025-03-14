@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predictive Maintenance for Crane Operations</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .dashboard {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    width: 90%;
+    max-width: 1200px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 20px;
+  }
+  .main-content {
+    flex: 3; /* Takes 75% of the width */
+  }
+  .metrics-container {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .metric {
+    width: 23%;
+    padding: 20px;
+    margin: 1%;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+  }
+  .wire-rope { background-color: green; }
+  .gears { background-color: yellow; }
+  .power-consumption { background-color: red; }
+  .gear-box-oil { background-color: orange; }
+  .visuals-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .visuals-container canvas {
+    width: 48% !important;
+    height: 200px !important;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  .alerts-container {
+    flex: 1; /* Takes 25% of the width */
+    padding: 20px;
+    background: #f8d7da;
+    border-radius: 10px;
+    color: #721c24;
+  }
+  .alerts-container h3 {
+    margin-top: 0;
+  }
+  .alerts-container ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  .alerts-container li {
+    margin-bottom: 10px;
+  }
+  .schedule-btn {
+    display: block;
+    margin: 20px auto;
+    padding: 10px 30px;
+    font-size: 1.5em;
+    background: limegreen;
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Main Content (Metrics and Visuals) -->
+    <div class="main-content">
+      <!-- Metrics Section -->
+      <div class="metrics-container">
+        <div id="wireRope" class="metric wire-rope">Wire Rope: 65%</div>
+        <div id="gears" class="metric gears">Gears: 30%</div>
+        <div id="powerConsumption" class="metric power-consumption">Power Consumption: 30%</div>
+        <div id="gearBoxOil" class="metric gear-box-oil">Gear Box Oil: 80%</div>
+      </div>
+      
+      <!-- Visuals Section -->
+      <div class="visuals-container">
+        <!-- Line Chart -->
+        <canvas id="lineChart"></canvas>
+
+        <!-- Bar Chart -->
+        <canvas id="barChart"></canvas>
+
+        <!-- Radar Chart -->
+        <canvas id="radarChart"></canvas>
+      </div>
+
+      <!-- Schedule Maintenance Button -->
+      <button class="schedule-btn" onclick="scheduleMaintenance()">Schedule Maintenance</button>
+    </div>
+
+    <!-- Alerts Section (Right Side) -->
+    <div class="alerts-container" id="alerts">
+      <h3>Maintenance Alerts</h3>
+      <ul id="alertList"></ul>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const metrics = {
+    wireRope: {
+      label: 'Wire Rope Wear',
+      colors: ['green', 'yellow', 'red'],
+      threshold: 70,
+      data: [65, 59, 80, 81, 56, 55], // Default data for Wire Rope
+      subMetrics: {
+        tension: { value: 75, threshold: 70 },
+        coreIntegrity: { value: 60, threshold: 60 },
+        externalWear: { value: 80, threshold: 80 }
+      }
+    },
+    gears: {
+      label: 'Gears Wear',
+      colors: ['yellow', 'red', 'green'],
+      threshold: 50,
+      data: [30, 40, 50, 60, 70, 80], // Default data for Gears
+      subMetrics: {
+        vibration: { value: 45, threshold: 50 },
+        noise: { value: 55, threshold: 60 },
+        wearPattern: { value: 65, threshold: 70 }
+      }
+    },
+    powerConsumption: {
+      label: 'Power Consumption',
+      colors: ['red', 'green', 'yellow'],
+      threshold: 40,
+      data: [20, 30, 40, 50, 60, 70], // Default data for Power Consumption
+      subMetrics: {
+        loadVariation: { value: 50, threshold: 60 }
+      }
+    },
+    gearBoxOil: {
+      label: 'Gear Box Oil Level',
+      colors: ['orange', 'red', 'green'],
+      threshold: 60,
+      data: [80, 70, 60, 50, 40, 30], // Default data for Gear Box Oil
+      subMetrics: {
+        oilLevel: { value: 70, threshold: 80 }
+      }
+    }
+  };
+
+  // Initialize charts
+  const lineChartCtx = document.getElementById('lineChart').getContext('2d');
+  const barChartCtx = document.getElementById('barChart').getContext('2d');
+  const radarChartCtx = document.getElementById('radarChart').getContext('2d');
+
+  let lineChart = new Chart(lineChartCtx, {
+    type: 'line',
+    data: {
+      labels: ['1', '2', '3', '4', '5', '6'],
+      datasets: [{
+        label: metrics.wireRope.label,
+        data: metrics.wireRope.data,
+        borderColor: 'blue',
+        borderWidth: 2,
+        backgroundColor: metrics.wireRope.colors[0]
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100
+        }
+      }
+    }
+  });
+
+  let barChart = new Chart(barChartCtx, {
+    type: 'bar',
+    data: {
+      labels: ['1', '2', '3', '4', '5', '6'],
+      datasets: [{
+        label: metrics.wireRope.label,
+        data: metrics.wireRope.data,
+        borderColor: 'blue',
+        borderWidth: 2,
+        backgroundColor: metrics.wireRope.colors[0]
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100
+        }
+      }
+    }
+  });
+
+  let radarChart = new Chart(radarChartCtx, {
+    type: 'radar',
+    data: {
+      labels: ['1', '2', '3', '4', '5', '6'],
+      datasets: [{
+        label: metrics.wireRope.label,
+        data: metrics.wireRope.data,
+        borderColor: 'blue',
+        borderWidth: 2,
+        backgroundColor: metrics.wireRope.colors[0]
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100
+        }
+      }
+    }
+  });
+
+  let selectedMetric = metrics.wireRope; // Default selected metric
+
+  function updateCharts(metric) {
+    lineChart.data.datasets[0].label = metric.label;
+    lineChart.data.datasets[0].data = metric.data;
+    lineChart.data.datasets[0].backgroundColor = metric.colors[0];
+    lineChart.update();
+
+    barChart.data.datasets[0].label = metric.label;
+    barChart.data.datasets[0].data = metric.data;
+    barChart.data.datasets[0].backgroundColor = metric.colors[0];
+    barChart.update();
+
+    radarChart.data.datasets[0].label = metric.label;
+    radarChart.data.datasets[0].data = metric.data;
+    radarChart.data.datasets[0].backgroundColor = metric.colors[0];
+    radarChart.update();
+  }
+
+  function updateSubMetrics(metric) {
+    const alertList = document.getElementById('alertList');
+    let alerts = [];
+
+    // Check for metric threshold
+    const metricValue = metric.data[metric.data.length - 1];
+    if (metricValue > metric.threshold) {
+      alerts.push(`${metric.label} is above threshold (${metricValue}%)`);
+    }
+
+    // Check for sub-metric thresholds
+    for (const [subMetric, { value, threshold }] of Object.entries(metric.subMetrics)) {
+      if (value > threshold) {
+        alerts.push(`${subMetric} is above threshold (${value}%)`);
+      }
+    }
+
+    // Display sub-metrics and alerts
+    alertList.innerHTML = [
+      ...Object.entries(metric.subMetrics).map(([key, { value }]) => `<li>${key}: ${value}%</li>`),
+      ...alerts.map(alert => `<li style="color: red;">${alert}</li>`)
+    ].join('');
+  }
+
+  // Add click event listeners to metrics
+  document.getElementById('wireRope').addEventListener('click', () => {
+    selectedMetric = metrics.wireRope;
+    updateCharts(selectedMetric);
+    updateSubMetrics(selectedMetric);
+  });
+  document.getElementById('gears').addEventListener('click', () => {
+    selectedMetric = metrics.gears;
+    updateCharts(selectedMetric);
+    updateSubMetrics(selectedMetric);
+  });
+  document.getElementById('powerConsumption').addEventListener('click', () => {
+    selectedMetric = metrics.powerConsumption;
+    updateCharts(selectedMetric);
+    updateSubMetrics(selectedMetric);
+  });
+  document.getElementById('gearBoxOil').addEventListener('click', () => {
+    selectedMetric = metrics.gearBoxOil;
+    updateCharts(selectedMetric);
+    updateSubMetrics(selectedMetric);
+  });
+
+  function getRandomValue() {
+    return Math.floor(Math.random() * 100) + 1; // Ensure value is between 1 and 100
+  }
+
+  function getRandomColor(colors) {
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  function updateMetrics() {
+    for (const metricId in metrics) {
+      const metric = metrics[metricId];
+      const value = getRandomValue();
+      metric.data.shift();
+      metric.data.push(value);
+
+      // Update metric value and color
+      const element = document.getElementById(metricId);
+      element.textContent = element.textContent.split(':')[0] + ': ' + value + '%';
+      element.style.backgroundColor = getRandomColor(metric.colors);
+
+      // Update sub-metrics with random values
+      for (const subMetric in metric.subMetrics) {
+        metric.subMetrics[subMetric].value = getRandomValue();
+      }
+    }
+
+    // Update the charts and sub-metrics if they match the current metric
+    if (selectedMetric) {
+      updateCharts(selectedMetric);
+      updateSubMetrics(selectedMetric);
+    }
+  }
+
+  function scheduleMaintenance() {
+    alert('Maintenance scheduled successfully!');
+  }
+
+  setInterval(updateMetrics, 2000);
+</script>
+</body>
+</html>
